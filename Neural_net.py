@@ -22,7 +22,7 @@ import random
 import os
 import cv2
 import time
-import tensorflow as tf
+import keras
 from keras import optimizers, Model
 from keras.models import Sequential
 from keras.preprocessing.image import ImageDataGenerator
@@ -45,114 +45,46 @@ def fix_gpu():
 fix_gpu()
 
 print("Imports done")
-count = 0
-
-# folder_dir = "D:/Pictures"
-# for folders in os.listdir(folder_dir):
-#     for images in os.listdir(folder_dir + "/" + folders):
-#         # check if the image ends with png
-#         if (images.endswith(".jpg")):
-#             frame = cv2.imread(folder_dir + "/" + folders + "/" + images)
-#             detector = FaceDetector.build_model('opencv')
-#             faces = FaceDetector.detect_faces(detector, 'opencv', frame)
-#             for face in faces:
-#                 dim = face[1]
-#                 roi = frame[dim[1]:dim[1] + dim[3], dim[0]:dim[0] + dim[2]]
-#                 cv2.imwrite(f"image_data/all_faces/{count}.jpg", roi)
-#                 count += 1
-#                 print(count)
-
-# print("Done")
-# exit()
-
-# Images = []
-
-# folder_images = []
-# for file in tqdm(glob.glob("image_data/Happy_all/*jpg")[:205]):
-#     image_data = []
-#     image = cv2.imread(file)
-#     image.resize((224, 224, 3))
-#     image = image/255
-#     image_data.append(image)
-#     image_data.append(0)
-#     folder_images.append(image_data)
-
-# Images.extend(folder_images)
-
-# folder_images = []
-# for file in tqdm(glob.glob("image_data/Sad_all/*jpg")):
-#     image_data = []
-#     image = cv2.imread(file)
-#     image.resize((224, 224, 3))
-#     image = image/255
-#     image_data.append(image)
-#     image_data.append(1)
-#     folder_images.append(image_data)
-
-# Images.extend(folder_images)
-
-# folder_images = []
-# for file in tqdm(glob.glob("image_data/neutral_new/*jpg")):
-#     image_data = []
-#     image = cv2.imread(file)
-#     image.resize((224, 224, 3))
-#     image = image/255
-#     image_data.append(image)
-#     image_data.append(2)
-#     folder_images.append(image_data)
-
-# Images.extend(folder_images)
-
-# for file in tqdm(glob.glob("image_data/angry/*jpg")):
-#     image_data = []
-#     image = cv2.imread(file)
-#     image.resize((224, 224, 3))
-#     image = image/255
-#     image_data.append(image)
-#     image_data.append(3)
-#     folder_images.append(image_data)
-
-# Images.extend(folder_images)
 
 Images_df = pd.read_csv("fer2013.csv")
-X_train = [[int(pixel) for pixel in image.split()] for image in tqdm(Images_df[Images_df["Usage"] == "Training"]["pixels"].values)]
+X_train = [[[int(pixel), int(pixel), int(pixel)] for pixel in image.split()] for image in tqdm(Images_df[Images_df["Usage"] == "Training"]["pixels"].values)]
 y_train = [emotion for emotion in Images_df[Images_df["Usage"] == "Training"]["emotion"].values]
 
 y_train = to_categorical(y_train, dtype ="uint8")
-X_train = np.array(X_train, dtype = 'float16').reshape(-1, 48 * 48 * 1)
+X_train = np.array(X_train, dtype = 'float16').reshape(-1, 48 * 48 * 3)
 
-X_test = [[int(pixel) for pixel in image.split()] for image in tqdm(Images_df[Images_df["Usage"] == "PublicTest"]["pixels"].values)]
+X_test = [[[int(pixel), int(pixel), int(pixel)] for pixel in image.split()] for image in tqdm(Images_df[Images_df["Usage"] == "PublicTest"]["pixels"].values)]
 y_test = [emotion for emotion in Images_df[Images_df["Usage"] == "PublicTest"]["emotion"].values]
 
-X_test.extend([[int(pixel) for pixel in image.split()] for image in tqdm(Images_df[Images_df["Usage"] == "PrivateTest"]["pixels"].values)])
+X_test.extend([[[int(pixel), int(pixel), int(pixel)] for pixel in image.split()] for image in tqdm(Images_df[Images_df["Usage"] == "PrivateTest"]["pixels"].values)])
 y_test.extend([emotion for emotion in Images_df[Images_df["Usage"] == "PrivateTest"]["emotion"].values])
 
 y_test = to_categorical(y_test, dtype ="uint8")
-X_test = np.array(X_test, dtype = 'float16').reshape(-1, 48 * 48 * 1)
+X_test = np.array(X_test, dtype = 'float16').reshape(-1, 48 * 48 * 3)
 
 scaler = StandardScaler()
 scaler.fit(X_train)
 X_train = scaler.transform(X_train)
 
-X_train = X_train.reshape(-1, 48, 48, 1)
+X_train = X_train.reshape(-1, 48, 48, 3)
 
 scaler.fit(X_test)
 X_test = scaler.transform(X_test)
 
-X_test = X_test.reshape(-1, 48, 48, 1)
+X_test = X_test.reshape(-1, 48, 48, 3)
 
 def get_model():
     model=Sequential()
 
-    base_model = ResNet50(weights = "imagenet", include_top = False, input_shape = (48, 48, 3) )
+    base_model = MobileNet(weights = "imagenet", include_top = False, input_shape = (48, 48, 3) )
 
     model.add(base_model)
 
-    model.add(Conv2D(64,(3,3), padding = "same", input_shape = (48, 48, 3), kernel_regularizer=keras.regularizers.l2(0.07) ))
+    model.add(Conv2D(64,(3,3), padding = "same", input_shape = (48, 48, 3), kernel_regularizer=keras.regularizers.l2(0.001) ))
     model.add(BatchNormalization())
     model.add(Activation("relu"))
 
-    model.add(Conv2D(128,(3,3), padding='same', kernel_regularizer=keras.regularizers.l2(0.07)))
+    model.add(Conv2D(128,(3,3), padding='same', kernel_regularizer=keras.regularizers.l2(0.001)))
     model.add(BatchNormalization())
     model.add(Activation("relu"))
     # model.add(MaxPool2D(2,2))
@@ -207,7 +139,7 @@ datagen = ImageDataGenerator(
 
 checkpointer = ModelCheckpoint('saved_model/model_t2', verbose=1, save_best_only=True)
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5,
-                              patience=2, min_lr=0.00001, mode='auto', verbose=1)
+                              patience=3, min_lr=0.00001, mode='auto', verbose=1)
 earlystopper = EarlyStopping(monitor='val_loss', patience=15, verbose=1, restore_best_weights=True)
 
 data = datagen.flow(X_train, y_train, batch_size = 64)
