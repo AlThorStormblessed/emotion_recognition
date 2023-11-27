@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Detection</title>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    <style>
+        body {
+            background: linear-gradient(to right, #050533, #0f000f);
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+        }
+
+        #header {
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #video_container {
+            margin-top: 20px;
+            border-radius: 8px; /* Added border radius */
+            overflow: hidden; /* Ensure the border radius is applied */
+        }
+
+        #mood {
+            font-size: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #textbox_container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .form-control {
+            width: 50%;
+            margin: auto;
+        }
+
+        /* Stylish 3D button effect */
+        .btn-custom {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s, box-shadow 0.3s; /* Added transitions for hover effect */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); /* Added box-shadow for 3D effect */
+        }
+
+        /* 3D hover effect for the button */
+        .btn-custom:hover {
+            background-color: #45a049;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4); /* Adjust values for desired effect */
+            transform: translateY(2px);
+        }
+
+        #spotify_iframe {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #spotify_frame {
+            width: 100%; /* Make the width equal to the video feed */
+            max-width: 600px; /* Set a max-width if needed */
+            height: 80px;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="header">
+            <h1>Emotion Detection</h1>
+        </div>
+
+        <div id="video_container">
+            <img id="video_feed" class="img-fluid" src="{{ url_for('video_feed') }}" alt="Video Feed">
+        </div>
+
+        <div id="textbox_container">
+            <input type="text" class="form-control" id="playlistUrl" placeholder="Enter Playlist URL">
+            <button class="btn btn-custom" onclick="submitPlaylistUrl()">Submit</button>
+        </div>
+
+        <div id="spotify_iframe">
+            <!-- The initial iframe will be replaced dynamically -->
+            <iframe id="spotify_frame" src="https://open.spotify.com/embed/track/{{ current_song_id }}&theme=0" frameborder="0" allowtransparency="true" allow="encrypted-media"></iframe>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and Popper.js -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+    <script>
+// Store the current song ID
+let currentSongId = null;
+let currentDuration = 10000;
+
+// Update the current mood on the page
+function updateSpotifyIframe(songId) {
+    const iframe = document.getElementById('spotify_frame');
+    const embedUrl = `https://open.spotify.com/embed/track/${songId}`;
+    iframe.src = embedUrl;
+}
+
+// Initial update when the page loads
+function fetchCurrentSongId() {
+    $.ajax({
+        url: '/get_current_song_id',
+        method: 'GET',
+        success: function (data) {
+            // Check if the song ID has changed
+            if (data.current_song_id !== currentSongId) {
+                updateSpotifyIframe(data.current_song_id);
+                currentSongId = data.current_song_id;
+                currentDuration = data.duration;
+            }
+        },
+        error: function (error) {
+            console.error('Error fetching current song ID:', error);
+        }
+    });
+}
+
+// Fetch the current song ID initially and set an interval to update it periodically
+fetchCurrentSongId();
+setInterval(fetchCurrentSongId, currentDuration);
+
+// Update the current mood and Spotify iframe
+function updateMoodAndSpotify(data) {
+    document.getElementById('mood').innerText = "Current Mood: " + data.current_mood;
+    // Check if the song ID has changed
+    if (data.current_song_id !== currentSongId) {
+        updateSpotifyIframe(data.current_song_id);
+        currentSongId = data.current_song_id;
+    }
+}
+
+// Establish WebSocket connection to get real-time updates
+const socket = new WebSocket('ws://' + window.location.host + '/ws');
+
+socket.onmessage = function (event) {
+    const data = JSON.parse(event.data);
+    updateMoodAndSpotify(data);
+};
+
+// Function to submit playlist URL
+function submitPlaylistUrl() {
+    const playlistUrl = document.getElementById('playlistUrl').value;
+
+    // Send the playlist URL to the server
+    fetch('/submit_playlist_url/' + encodeURIComponent(playlistUrl), { method: 'GET' })
+        .then(response => response.text())
+        .then(data => console.log(data))
+        .catch(error => console.error('Error:', error));
+}
+
+    </script>
+
+</body>
+</html>

@@ -23,7 +23,6 @@ import os
 import cv2
 import time
 import keras
-import tensorflow as tf
 from keras import optimizers, Model
 from keras.models import Sequential
 from keras.preprocessing.image import ImageDataGenerator
@@ -37,7 +36,6 @@ from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 from deepface import DeepFace
 from deepface.detectors import FaceDetector
 
-print(tf.config.list_physical_devices())
 
 def fix_gpu():
     config = ConfigProto()
