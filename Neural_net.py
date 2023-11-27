@@ -23,7 +23,10 @@ import os
 import cv2
 import time
 import keras
+<<<<<<< HEAD
 import tensorflow as tf
+=======
+>>>>>>> 102a6e09b366ad02641586f9bc5f94eaf8512c82
 from keras import optimizers, Model
 from keras.models import Sequential
 from keras.preprocessing.image import ImageDataGenerator
