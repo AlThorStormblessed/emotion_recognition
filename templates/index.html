@@ -10,7 +10,7 @@
 
     <style>
         body {
-            background: linear-gradient(to right, #050533, #0f000f);
+            background: linear-gradient(to right, #3ca54a, #043b2d);
             color: #fff;
             margin: 0;
             padding: 0;
@@ -18,17 +18,23 @@
         }
 
         #header {
-            background-color: rgba(255, 255, 255, 0.5);
+            background-color: rgba(206, 218, 47, 0.795);
             padding: 10px;
             border-radius: 10px;
+            margin: auto;
             margin-top: 20px;
             text-align: center;
+            color: #0f000f;
+            font-family:Arial, Helvetica, sans-serif;
+            box-shadow: 0px 2px 3px 1px;
+            width: 500px;
         }
 
         #video_container {
             margin-top: 20px;
             border-radius: 8px; /* Added border radius */
-            overflow: hidden; /* Ensure the border radius is applied */
+            overflow: hidden;
+            box-shadow: 0px 2px 3px 4px solid rgb(167, 166, 166); /* Ensure the border radius is applied */
         }
 
         #mood {
@@ -40,16 +46,24 @@
         #textbox_container {
             text-align: center;
             margin-top: 20px;
+            display: flex;
+            padding: 0px;
         }
 
         .form-control {
-            width: 50%;
-            margin: auto;
+            /* width: 50%; */
+            /* margin: auto; */
+            flex-basis: 70%;
+            border: solid rgb(104, 0, 104);
+            padding: 10px 20px;
+            font-size: large;
+            height: 45px;
+            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
         }
 
         /* Stylish 3D button effect */
         .btn-custom {
-            background-color: #4CAF50;
+            background-color: #af4c4c;
             color: white;
             border: none;
             padding: 10px 20px;
@@ -57,30 +71,35 @@
             text-decoration: none;
             display: inline-block;
             font-size: 16px;
-            margin: 4px 2px;
+            height: 45px;
+            /* margin: 4px 2px; */
             cursor: pointer;
             border-radius: 8px;
+            margin-left: 10px;
             transition: background-color 0.3s, box-shadow 0.3s; /* Added transitions for hover effect */
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); /* Added box-shadow for 3D effect */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            flex-basis: 30%; /* Added box-shadow for 3D effect */
         }
 
         /* 3D hover effect for the button */
         .btn-custom:hover {
             background-color: #45a049;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4); /* Adjust values for desired effect */
-            transform: translateY(2px);
+            padding: 10px 22px;
+            scale: 1.1;
         }
 
-        #spotify_iframe {
+        #youtube_iframe {
             text-align: center;
-            margin-top: 20px;
+            margin: auto;
+            margin-top: 40px;
         }
 
-        #spotify_frame {
+        #youtube_frame {
             width: 100%; /* Make the width equal to the video feed */
-            max-width: 600px; /* Set a max-width if needed */
-            height: 80px;
+            /* max-width: 600px; Set a max-width if needed */
             border: 0;
+            border-radius: 8px;
         }
     </style>
 </head>
@@ -88,7 +107,7 @@
 
     <div class="container">
         <div id="header">
-            <h1>Emotion Detection</h1>
+            <h1><b>Emotion Detection</b></h1>
         </div>
 
         <div id="video_container">
@@ -100,9 +119,10 @@
             <button class="btn btn-custom" onclick="submitPlaylistUrl()">Submit</button>
         </div>
 
-        <div id="spotify_iframe">
+        <div id="youtube_iframe">
             <!-- The initial iframe will be replaced dynamically -->
-            <iframe id="spotify_frame" src="https://open.spotify.com/embed/track/{{ current_song_id }}&theme=0" frameborder="0" allowtransparency="true" allow="encrypted-media"></iframe>
+            <iframe id="youtube_frame" width="100%" height="315" frameborder="0" src = "https://www.youtube.com/embed/{{ song_link }}?autoplay=1" allow="autoplay" allowscriptaccess="always" allowfullscreen="false"></iframe>
+
         </div>
     </div>
 
@@ -113,27 +133,28 @@
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 
     <script>
-// Store the current song ID
-let currentSongId = null;
-let currentDuration = 10000;
 
-// Update the current mood on the page
-function updateSpotifyIframe(songId) {
-    const iframe = document.getElementById('spotify_frame');
-    const embedUrl = `https://open.spotify.com/embed/track/${songId}`;
+let currentVideoId = null;
+let currentDuration = 120000;
+
+function updateYouTubeIframe(song_link) {
+    const iframe = document.getElementById('youtube_frame');
+    const embedUrl = `https://www.youtube.com/embed/${song_link}?autoplay=1`;
     iframe.src = embedUrl;
 }
 
-// Initial update when the page loads
 function fetchCurrentSongId() {
     $.ajax({
         url: '/get_current_song_id',
         method: 'GET',
         success: function (data) {
+
+            console.log(data.song_link)
+
             // Check if the song ID has changed
-            if (data.current_song_id !== currentSongId) {
-                updateSpotifyIframe(data.current_song_id);
-                currentSongId = data.current_song_id;
+            if (data.song_link !== currentVideoId) {
+                updateYouTubeIframe(data.song_link);
+                currentVideoId = data.song_link;
                 currentDuration = data.duration;
             }
         },
@@ -147,13 +168,12 @@ function fetchCurrentSongId() {
 fetchCurrentSongId();
 setInterval(fetchCurrentSongId, currentDuration);
 
-// Update the current mood and Spotify iframe
-function updateMoodAndSpotify(data) {
+function updateMoodAndYouTube(data) {
     document.getElementById('mood').innerText = "Current Mood: " + data.current_mood;
-    // Check if the song ID has changed
-    if (data.current_song_id !== currentSongId) {
-        updateSpotifyIframe(data.current_song_id);
-        currentSongId = data.current_song_id;
+    // Check if the video ID has changed
+    if (data.song_link !== currentVideoId) {
+        updateYouTubeIframe(data.song_link);
+        currentVideoId = data.song_link;
     }
 }
 
@@ -162,7 +182,7 @@ const socket = new WebSocket('ws://' + window.location.host + '/ws');
 
 socket.onmessage = function (event) {
     const data = JSON.parse(event.data);
-    updateMoodAndSpotify(data);
+    updateMoodAndYouTube(data);
 };
 
 // Function to submit playlist URL

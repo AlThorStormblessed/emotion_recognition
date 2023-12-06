@@ -14,13 +14,16 @@ import requests
 import tqdm
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
+from youtubesearchpython import *
 
 global mood_songs
 global current_song_id
 global duration, pred_string
+global song_link
 
 
 pred_string = ""
+song_link = "yWHrYNP6j4k"
 
 app = Flask(__name__)
 
@@ -29,23 +32,13 @@ mood_songs = pd.read_csv("Ansh_moods.csv")
 
 model_moods = pickle.load(open("moods.pkl", "rb"))
 
-# Replace with your own Client ID and Client Secret
 CLIENT_ID = "29552cf19dd74bdc9ca2bf1af6a555e4"
 CLIENT_SECRET = "7e8cac1fa75f480cad828a7c391044a5"
 SCOPE = 'user-read-playback-state user-modify-playback-state'
 
-# SPOTIPY_REDIRECT_URI = 'http://localhost:3000'
-# SPOTIPY_USERNAME = 'AlThorStormblessed'
-
-# # Authorization flow
-# sp_oauth = SpotifyOAuth(CLIENT_ID, CLIENT_SECRET, SPOTIPY_REDIRECT_URI, scope=SCOPE)
-# token_info = sp_oauth.get_access_token()
-
-# Base64 encode the client ID and client secret
 client_credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
 client_credentials_base64 = base64.b64encode(client_credentials.encode())
 
-# Request the access token
 token_url = 'https://accounts.spotify.com/api/token'
 headers = {
     'Authorization': f'Basic {client_credentials_base64.decode()}',
@@ -78,16 +71,12 @@ def content_based_recommendations(music_df, num_recommendations=20):
     all_tracks_features_scaled = scaler.fit_transform(all_tracks[['popularity', 'danceability', 'acousticness', 'energy', 'instrumentalness',
        'liveness', 'valence', 'loudness', 'speechiness', 'tempo', 'key']])
 
-
-    # Calculate the similarity scores based on music features (cosine similarity)
     similarity_scores = cosine_similarity(music_features_scaled, all_tracks_features_scaled)
 
-    # Get the indices of the most similar songs
     similar_song_indices = similarity_scores.argsort()[0][::-1][1:num_recommendations * 15 + 1]
 
     artists = [item for sublist in music_df["artists"] for item in sublist]
 
-    # Get the names of the most similar songs based on content-based filtering
     content_based_rec = all_tracks.iloc[similar_song_indices][['name', 'artists', 'popularity', 'id']]
     content_based_rec["id"] = "https://open.spotify.com/track/" + content_based_rec["id"].str[:]
 
@@ -99,10 +88,8 @@ def content_based_recommendations(music_df, num_recommendations=20):
     return content_based_rec.head(num_recommendations)
 
 def get_trending_playlist_data(playlist_id, access_token):
-    # Set up Spotipy with the access token
     sp = spotipy.Spotify(auth=access_token)
 
-    # Extract relevant information and store in a list of dictionaries
     music_data = []
     i = 0
     while len(sp.playlist_tracks(playlist_id, fields='items(track(id, name, artists, album(id, name)))', offset = i * 100)['items']):
@@ -118,24 +105,20 @@ def get_trending_playlist_data(playlist_id, access_token):
             album_id = track['album']['id']
             track_id = track['id']
 
-            # Get audio features for the track
             audio_features = sp.audio_features(track_id)[0] if track_id != 'Not available' else None
 
-            # Get release date of the album
             try:
                 album_info = sp.album(album_id) if album_id != 'Not available' else None
                 release_date = album_info['release_date'] if album_info else None
             except:
                 release_date = None
 
-            # Get popularity of the track
             try:
                 track_info = sp.track(track_id) if track_id != 'Not available' else None
                 popularity = track_info['popularity'] if track_info else None
             except:
                 popularity = None
 
-            # Add additional track information to the track data
             track_data = {
                 'name': track_name,
                 'artists': artists,
@@ -155,14 +138,12 @@ def get_trending_playlist_data(playlist_id, access_token):
                 'liveness': audio_features['liveness'] if audio_features else None,
                 'valence': audio_features['valence'] if audio_features else None,
                 'tempo': audio_features['tempo'] if audio_features else None,
-                # Add more attributes as needed
             }
 
             music_data.append(track_data)
 
         i += 1
 
-    # Create a pandas DataFrame from the list of dictionaries
     df = pd.DataFrame(music_data)
 
     features = df[['popularity', 'danceability', 'acousticness', 'energy', 'instrumentalness',
@@ -237,31 +218,30 @@ def generate_frames():
                     else:
                         j += 1
 
-                # Update current mood and send it to the client via WebSocket
                 prev_mood.append(mood)
                 if(mode(prev_mood[-10:]) != mode_mood):
                     print("ANSH")
                     mode_mood = mode(prev_mood[-10:])
                     current_mood = mood_songs.loc[mood_songs["mood"] == mood]
-                    # random.shuffle(current_mood)
 
-                    # Sending current mood to the client via WebSocket
-                    global current_song_id, duration
+                    global current_song_id, duration, song_link
                     song = current_mood.sample(n=1)
                     current_song_id = song["id"].values[0]
                     duration = song["duration_ms"].values[0]
+                    song_name = song['name'].values[0] + " " + song['artists'].values[0]
 
-                    # socket.send(json.dumps({'current_mood': song["name"].values[0], 'current_song_id': current_song_id, 'duration': duration}))
-                    # print(current_song_id)
+                    customSearch = VideosSearch(song_name + " Lyrics", limit = 1)
+
+                    song_link = customSearch.result()['result'][0]['link'].split("v=")[1]
+
+                    print(song_link, current_song_id)
 
                 frame = cv2.putText(frame, f"Next song: {song['name'].values[0]}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
-                # frame = cv2.putText(frame, f"Emotions: {pred_string}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
-
+                
             except Exception as e:
                 pred_string = "No face"
                 print(e)
 
-        # Convert the frame to RGB and fix the color issue
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
         frame[:, :, 0] = cv2.equalizeHist(frame[:, :, 0])
         frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR)
@@ -275,8 +255,8 @@ def generate_frames():
 
 @app.route('/')
 def index():
-    global current_song_id, duration, pred_string
-    return render_template('index.html', current_song_id=current_song_id, token = access_token, duration = duration, pred_string= pred_string)
+    global current_song_id, duration, pred_string, song_link
+    return render_template('index.html', current_song_id=current_song_id, token = access_token, duration = duration, pred_string= pred_string, song_link = song_link)
 
 @app.route('/video_feed')
 def video_feed():
@@ -286,13 +266,12 @@ def video_feed():
 def ws():
     return socket.recv()
 
-# WebSocket route for receiving playlist URL
 @app.route('/submit_playlist_url/<path:playlist_url>')
 def submit_playlist_url(playlist_url):
     global mood_songs
     print(mood_songs.head())
     current_playlist_url = playlist_url
-    # Add your logic here to handle the submitted playlist URL
+
     print('Received Playlist URL:', current_playlist_url)
     playlist_id = current_playlist_url.split("playlist/")[1]
     playlist_id = playlist_id.split("?")[0]
@@ -302,7 +281,7 @@ def submit_playlist_url(playlist_url):
 
 @app.route('/get_current_song_id')
 def get_current_song_id():
-    return {'current_song_id': current_song_id}
+    return {'song_link': song_link}
 
 if __name__ == '__main__':
     app.run(debug=True)
