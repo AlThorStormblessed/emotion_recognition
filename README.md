@@ -6,8 +6,6 @@ A basic application that detects and recognises emotion of user through camera f
 
 Current issues that need to be resolved: Better UI, autoplaying recommended songs, higher accuracy etc.
 
-Create required models by running one of Neural_net.py, Neural_net2.py and Neural_net3.py for emotion recognition, and model_create.py for song classification.
-
-Run application using app.py.
+Does not include datasets used.
 
 ![image](https://github.com/AlThorStormblessed/emotion_recognition/assets/86941904/1c2c11e6-05b3-422f-b3dc-3bde38725dce)
